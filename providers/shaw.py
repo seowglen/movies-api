@@ -5,7 +5,7 @@ import requests
 
 from models.screening import Screening
 from models.seat_layout import Seat, SeatLayout
-from providers.base import MovieSearchProvider
+from providers.base import MovieCatalog, MovieSearchProvider
 
 
 HEADERS = {
@@ -24,15 +24,16 @@ class ShawSearchProvider(MovieSearchProvider):
         self.session = session or requests.Session()
 
     def catalog(self, target_date):
-        return [movie["primaryTitle"] for movie in self._movies(target_date)]
+        return [MovieCatalog(self._movie_id(movie), movie["primaryTitle"], movie) for movie in self._movies(target_date)]
 
-    def search(self, request):
+    def search(self, request, movie_ids=None, catalog=None):
         results = []
         now = datetime.now()
 
-        for movie in self._movies(request.date):
+        movies = [entry.data for entry in catalog] if catalog is not None else self._movies(request.date)
+        for movie in movies:
             title = movie["primaryTitle"]
-            if request.movie.casefold() not in title.casefold():
+            if movie_ids is not None and self._movie_id(movie) not in movie_ids:
                 continue
 
             for show in movie["showTimes"]:
@@ -44,8 +45,6 @@ class ShawSearchProvider(MovieSearchProvider):
                 experience = self._experience(show["brandCode"], cinema)
 
                 if starts_at < now or (request.after and starts_at.time() < request.after):
-                    continue
-                if request.location and request.location.casefold() not in cinema.casefold():
                     continue
                 if request.experience and request.experience.upper() != experience:
                     continue
@@ -60,6 +59,7 @@ class ShawSearchProvider(MovieSearchProvider):
                     experience=experience,
                     performance_id=performance_id,
                     booking_url="https://shaw.sg/showtimes/%s" % performance_id,
+                    cinema_id=str(show.get("locationId")),
                 ))
         return results
 
@@ -111,6 +111,11 @@ class ShawSearchProvider(MovieSearchProvider):
         )
         response.raise_for_status()
         return response.json()
+
+    @staticmethod
+    def _movie_id(movie):
+        # Shaw has used both names in responses from different API versions.
+        return movie.get("movieId", movie.get("id"))
 
     @staticmethod
     def _experience(brand_code, cinema):

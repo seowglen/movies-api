@@ -19,7 +19,9 @@ class SeatRecommendationProvider:
 
     def recommend(self, layout, pax, experience):
         candidates = []
-        rows = sorted(layout.rows)
+        # Cinema layouts in these provider responses label front rows with
+        # higher letters, so reverse the labels before applying row scores.
+        rows = sorted(layout.rows, reverse=True)
         for row_index, row in enumerate(rows):
             numbers = sorted(set(layout.rows[row]))
             for start in numbers:
@@ -42,7 +44,9 @@ class SeatRecommendationProvider:
         row_score = max(0.0, 1.0 - abs(row_index - ideal_row) / max(1.0, len(rows)))
         buffer_score = sum(1 for seat in (Seat(group[0].row, group[0].number - 1), Seat(group[-1].row, group[-1].number + 1)) if seat in layout.available) / 2.0
         experience_score = self.experience_scores.get(experience.upper(), self.experience_scores["STANDARD"])
-        return 100 * (0.45 * row_score + 0.30 * horizontal + 0.15 * experience_score + 0.10 * buffer_score)
+        front_penalty = {0: 33.0, 1: 23.0, 2: 12.0}.get(row_index, 0.0)
+        weighted_score = 100 * (0.50 * row_score + 0.28 * horizontal + 0.13 * experience_score + 0.09 * buffer_score)
+        return max(0.0, weighted_score - front_penalty)
 
     @staticmethod
     def _strands_single_seat(layout, selected):

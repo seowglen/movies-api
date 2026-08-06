@@ -3,9 +3,10 @@ from datetime import datetime
 
 from curl_cffi import requests
 
+from cache import gv_seatplan_cache
 from models.screening import Screening
 from models.seat_layout import Seat, SeatLayout
-from providers.base import MovieSearchProvider
+from providers.base import MovieCatalog, MovieSearchProvider
 from utils.constants import GV_CINEMAS
 
 
@@ -25,12 +26,13 @@ class GVSearchProvider(MovieSearchProvider):
         self.cinemas = GV_CINEMAS
 
     def catalog(self, target_date):
-        return [film["filmTitle"] for film in self._films()]
+        return [MovieCatalog(film["filmCd"], film["filmTitle"], film) for film in self._films()]
 
-    def search(self, request):
+    def search(self, request, movie_ids=None, catalog=None):
         results = []
-        for film in self._films():
-            if request.movie.casefold() not in film["filmTitle"].casefold():
+        films = [entry.data for entry in catalog] if catalog is not None else self._films()
+        for film in films:
+            if movie_ids is not None and film["filmCd"] not in movie_ids:
                 continue
             results.extend(self._screenings(film, request))
         return results
@@ -72,21 +74,25 @@ class GVSearchProvider(MovieSearchProvider):
         return float(adult["discountPrice"]) if adult else None
 
     def _films(self):
+        # TODO: put homeadvancesales if necessary
         films = {}
-        for endpoint in ("homenowshowing", "homeadvancesales"):
-            for film in self._post(endpoint, None, referer="https://www.gv.com.sg/")["data"]:
-                films[film["filmCd"]] = film
+        for film in self._post("homenowshowing", None, referer="https://www.gv.com.sg/")["data"]:
+            films[film["filmCd"]] = film
         return list(films.values())
 
     def _seatplan(self, performance_id):
+        if performance_id in gv_seatplan_cache:
+            return gv_seatplan_cache[performance_id]
         cinema_id, film_code, show_date, show_time, hall_number = performance_id.split("|")
-        return self._post("seatplan", {
+        data = self._post("seatplan", {
             "cinemaId": cinema_id,
             "filmCode": film_code,
             "showDate": show_date,
             "showTime": show_time,
             "hallNumber": hall_number,
         }, referer="https://www.gv.com.sg/GVSeatSelection")["data"]
+        gv_seatplan_cache[performance_id] = data
+        return data
 
     def _screenings(self, film, request):
         session_data = self._post(
@@ -95,17 +101,19 @@ class GVSearchProvider(MovieSearchProvider):
             referer="https://www.gv.com.sg/GVMovieDetails",
         )["data"]
         screenings = []
+        now = datetime.now()
         for location in session_data["locations"]:
             cinema = self.cinemas.get(location["id"], location["name"])
-            if request.location and request.location.casefold() not in cinema.casefold():
-                continue
             for day in location["dates"]:
                 show_date = datetime.fromtimestamp(day["date"] / 1000).date()
                 if show_date != request.date:
                     continue
                 for show in day["times"]:
-                    starts_at = datetime.combine(show_date, datetime.strptime(show["time24"], "%H%M").time())
+                    time24 = str(show["time24"]).zfill(4)
+                    starts_at = datetime.combine(show_date, datetime.strptime(time24, "%H%M").time())
                     experience = self._experience(cinema)
+                    if starts_at < now:
+                        continue
                     if request.after and starts_at.time() < request.after:
                         continue
                     if request.experience and request.experience.upper() != experience:
@@ -115,7 +123,7 @@ class GVSearchProvider(MovieSearchProvider):
                         "https://www.gv.com.sg/GVSeatSelection#/cinemaId/%s/filmCode/%s/"
                         "showDate/%s/showTime/%s/hallNumber/%s"
                     ) % (location["id"], film["filmCd"], starts_at.strftime("%d-%m-%Y"), show["time24"], show["hallNumber"])
-                    screenings.append(Screening(self.name, film["filmTitle"], cinema, "Hall %s" % show["hallNumber"], starts_at, experience, performance_id, booking_url))
+                    screenings.append(Screening(self.name, film["filmTitle"], cinema, "Hall %s" % show["hallNumber"], starts_at, experience, performance_id, booking_url, cinema_id=location["id"]))
         return screenings
 
     def _post(self, endpoint, payload, referer):

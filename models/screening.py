@@ -16,3 +16,5 @@ class Screening:
     price: Optional[float] = None
     seat_quality: Optional[float] = None
     recommended_seats: List[str] = field(default_factory=list)
+    distance_km: Optional[float] = None
+    cinema_id: Optional[str] = None

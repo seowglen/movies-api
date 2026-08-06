@@ -22,3 +22,16 @@ def test_recommendation_does_not_leave_one_valid_seat_between_bookings():
     recommendation = GVRecommendationProvider().recommend(layout, pax=2, experience="STANDARD")
 
     assert recommendation.seats == ["A2", "A3"]
+
+
+def test_front_rows_receive_a_strong_penalty():
+    layout = SeatLayout(rows={row: list(range(1, 11)) for row in "ABCDE"})
+    layout.available = {Seat(row, number) for row in layout.rows for number in layout.rows[row]}
+    provider = ShawRecommendationProvider()
+    rows = list(layout.rows)
+    group = [Seat("A", 5), Seat("A", 6)]
+
+    front_score = provider._score(0, rows, layout.rows["A"], group, layout, "STANDARD")
+    middle_score = provider._score(3, rows, layout.rows["D"], [Seat("D", 5), Seat("D", 6)], layout, "STANDARD")
+
+    assert front_score < middle_score - 15
