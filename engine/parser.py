@@ -39,8 +39,8 @@ class ParserService:
         parsed = dateparser.parse(value) if value else None
         return parsed.time().replace(second=0, microsecond=0) if parsed else None
     def _extract_pax(self, text):
-        match = re.search(r"\bfor\s+(\d+)\b|\b(\d+)\s*(?:pax|people|persons?|tickets?)\b", text, re.I)
-        return int(match.group(1) or match.group(2)) if match else 2
+        match = re.search(r"\bfor\s+(\d+)\b|\bwith\s+(\d+)\s+(?:of\s+my\s+)?(?:homies|friends|people|persons?)\b|\b(\d+)\s*(?:pax|people|persons?|tickets?)\b", text, re.I)
+        return int(next(group for group in match.groups() if group)) if match else 2
     def _extract_location(self, text):
         match = re.search(self._location_pattern(), text, re.I)
         return match.group(1).strip(" ,.-") if match else None
@@ -59,9 +59,12 @@ class ParserService:
         return r"\b%s(.+?)(?=\s+\b(?:%s)\b|$)" % (location, stop)
     def _movie_hint(self, text):
         value = re.sub(r"^\s*(?:/movie|movie)\s+", "", text, flags=re.I)
-        value = re.sub(r"^\s*(?:please\s+)?(?:show(?:\s+me)?|find|can\s+i\s+watch)\s+", "", value, flags=re.I)
+        value = re.sub(r"\bwith\s+\d+\s+(?:of\s+my\s+)?(?:homies|friends|people|persons?)\b", "", value, flags=re.I)
+        value = re.sub(r"\brecommend\s+me\s+(?:some\s+)?seats?\b", "", value, flags=re.I)
+        value = re.sub(r"^\s*(?:please\s+)?(?:show(?:\s+me)?|find|can\s+i\s+watch|wanna\s+watch|want\s+to\s+watch|watch)\s+", "", value, flags=re.I)
         value = re.sub(r"\b(?:after|from|at)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b|\b\d{1,2}:\d{2}\s*(?:onwards|and\s+later)?\b|\b\d{1,2}\s*(?:am|pm)\s*(?:onwards|and\s+later)?\b", "", value, flags=re.I)
         value = re.sub(r"\bfor\s+\d+\s*(?:pax|people|persons?|tickets?)?\b", "", value, flags=re.I)
         value = re.sub(r"\b(?:in\s+)?(?:imax|atmos|premiere|lumiere|gold\s*class|gv\s*max|gvm?ax|standard)\b", "", value, flags=re.I)
         value = re.sub(r"\b(?:day\s+after\s+tomorrow|in\s+\d+\s+days?|(?:next|this)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|today|tomorrow|tmr|tmrw|(?:on\s+)?\d{1,2}\s+\w+(?:\s+\d{4})?)\b", "", value, flags=re.I)
+        value = re.sub(r"\bfor\s*$", "", value, flags=re.I)
         return re.sub(r"\s+", " ", value).strip(" ,.-") or text

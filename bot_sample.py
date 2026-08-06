@@ -26,7 +26,7 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     best = screenings[0]
     seats = ", ".join(best["recommended_seats"]) or "No suitable group found"
-    price = "$%.2f" % best["price"] if best["price"] is not None else "Price unavailable"
+    price = "$%.2f" % best["baselinePrice"] if best["baselinePrice"] is not None else "Baseline price unavailable"
 
     await update.message.reply_text(
         "{movie}\n"
@@ -36,7 +36,7 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "{url}".format(
             movie=best["movie"],
             cinema=best["cinema"],
-            datetime=best["datetime"],
+        datetime=best["startTimeUTC"],
             experience=best["experience"],
             price=price,
             seats=seats,

@@ -60,3 +60,12 @@ def test_parser_supports_relative_and_weekday_dates():
     assert parser.parse("odyssey next Monday").date == date(2026, 8, 17)
     assert parser.parse("odyssey this Friday").date == date(2026, 8, 7)
     assert parser.parse("odyssey next Friday").date == date(2026, 8, 14)
+
+
+def test_parser_fallback_handles_conversational_group_phrasing():
+    parser = ParserService(today=lambda: date(2026, 8, 6))
+    request = parser.parse("with 3 of my homies wanna watch spiderman, recommend me some seats for tmr")
+
+    assert request.movie == "spiderman"
+    assert request.pax == 3
+    assert request.date == date(2026, 8, 7)

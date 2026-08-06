@@ -11,8 +11,13 @@ FastAPI service that parses natural-language movie requests, searches providers,
 Open `http://127.0.0.1:8000/docs`, or call:
 
 ```powershell
-Invoke-RestMethod -Method Post http://127.0.0.1:8000/parse -ContentType 'application/json' -Body '{"query":"/movie fantastic four tomorrow after 7pm for 2 people"}'
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/search -ContentType 'application/json' -Body '{"title":"spiderman","startTimeUTC":"2026-08-07T11:00:00Z","endTimeUTC":"2026-08-07T15:00:00Z","paxCount":4,"location":"ORCHARD","experience":"IMAX"}'
 ```
+
+`startTimeUTC` is required and `endTimeUTC` is optional. If the window spans
+multiple dates, each Singapore-local date is searched and the results are
+merged. Set `location` to `null` to search all cinemas. Supported locations
+and experiences are validated before provider calls.
 
 ## Test
 
@@ -24,5 +29,7 @@ The legacy `movies.py` prototype remains untouched.
 
 ## Caching
 
-The API uses in-memory TTL caches: movie catalogues (1 hour), search results and
-ticket prices (5 minutes), and seat layouts (30 seconds).
+The API uses in-memory TTL caches: movie catalogues (1 hour), search results
+(5 minutes), GV seat plans (30 seconds), and seat layouts (30 seconds). Ticket
+prices are represented by a local adult baseline matrix and do not call provider
+price APIs.

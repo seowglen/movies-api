@@ -13,7 +13,7 @@ class Screening:
     experience: str
     performance_id: str
     booking_url: str
-    price: Optional[float] = None
+    baseline_price: Optional[float] = None
     seat_quality: Optional[float] = None
     recommended_seats: List[str] = field(default_factory=list)
     distance_km: Optional[float] = None

@@ -30,7 +30,7 @@ def test_search_adds_recommended_seats():
     results = SearchService([provider], {"fake": ShawRecommendationProvider()}).search(SearchRequest("Example", date(2026, 8, 6), pax=2))
     assert results[0].recommended_seats
     assert results[0].seat_quality is not None
-    assert results[0].price == 12.5
+    assert results[0].baseline_price is None
     assert provider.catalog_calls == 1
 
 
@@ -70,6 +70,21 @@ def test_candidate_cap_prioritizes_distance_before_enrichment():
     results = SearchService._select_candidates(screenings)
 
     assert [item.performance_id for item in results] == ["near", "far"]
+
+
+def test_multi_day_candidate_cap_keeps_each_date_represented():
+    screenings = [
+        Screening("fake", "Example", "Test", "1", datetime(2026, 8, 7, 19), "STANDARD", "d1", "url"),
+        Screening("fake", "Example", "Test", "1", datetime(2026, 8, 8, 19), "STANDARD", "d2", "url"),
+        Screening("fake", "Example", "Test", "1", datetime(2026, 8, 9, 19), "STANDARD", "d3", "url"),
+    ]
+    request = SearchRequest("Example", date(2026, 8, 7), end_date=date(2026, 8, 9))
+
+    results = SearchService._select_candidates(screenings, request)
+
+    assert {item.datetime.date() for item in results} == {
+        date(2026, 8, 7), date(2026, 8, 8), date(2026, 8, 9)
+    }
 
 
 def test_search_removes_screenings_without_recommended_seats():

@@ -46,6 +46,8 @@ class ShawSearchProvider(MovieSearchProvider):
 
                 if starts_at < now or (request.after and starts_at.time() < request.after):
                     continue
+                if request.until and starts_at.time() > request.until:
+                    continue
                 if request.experience and request.experience.upper() != experience:
                     continue
 
@@ -85,16 +87,6 @@ class ShawSearchProvider(MovieSearchProvider):
             else:
                 layout.occupied.add(seat)
         return layout
-
-    def get_ticket_price(self, performance_id):
-        response = self.session.get(
-            self.base_url + "/api/v2/performances/%s/ticket_types" % performance_id,
-            headers=dict(HEADERS, referer="https://shaw.sg/showtimes/%s" % performance_id),
-            timeout=15,
-        )
-        response.raise_for_status()
-        adult = next((ticket for ticket in response.json() if ticket.get("ticketType", "").casefold() == "adult"), None)
-        return float(adult["salesAmount"]) if adult else None
 
     def _movies(self, target_date):
         response = self.session.get(

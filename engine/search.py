@@ -2,14 +2,16 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 from threading import Lock
 
-from cache import seat_layout_cache, showtime_cache, ticket_price_cache
+from cache import seat_layout_cache, showtime_cache
 from cache import movie_catalog_cache
 from providers.base import CatalogMatch
 from rapidfuzz import fuzz, process
 from utils.location import DEFAULT_RADIUS_KM, cinema_coordinates, distance_km, resolve_location
+from utils.pricing import resolve_baseline_price
 
 logger = logging.getLogger(__name__)
-MAX_SCREENINGS = 10
+MAX_CANDIDATES = 50
+MAX_RESULTS = 10
 
 
 class SearchService:
@@ -17,12 +19,11 @@ class SearchService:
         self.providers = {provider.name: provider for provider in providers}
         self.recommendation_providers = recommendation_providers
         self._catalog_cache_lock = Lock()
-        self._price_cache_lock = Lock()
         self._seat_cache_lock = Lock()
 
 
     def search(self, request):
-        cache_key = (request.movie.casefold(), request.date.isoformat(), request.after.isoformat() if request.after else None, request.pax, request.location, request.experience, request.radius_km)
+        cache_key = (request.movie.casefold(), request.date.isoformat(), request.end_date.isoformat() if request.end_date else None, request.after.isoformat() if request.after else None, request.until.isoformat() if request.until else None, request.pax, request.location, request.experience, request.radius_km)
         if cache_key in showtime_cache: return showtime_cache[cache_key]
 
         screenings = []
@@ -38,7 +39,7 @@ class SearchService:
                 except Exception:
                     logger.exception("Movie search failed for provider %s", provider.name)
 
-        screenings = self._select_candidates(screenings)
+        screenings = self._select_candidates(screenings, request)
 
         with ThreadPoolExecutor(max_workers=min(8, max(1, len(screenings)))) as executor:
             enrichments = [executor.submit(self._enrich_screening, screening, request) for screening in screenings]
@@ -47,33 +48,37 @@ class SearchService:
 
         screenings = [screening for screening in screenings if screening.recommended_seats]
         screenings.sort(key=lambda item: (-1 if item.seat_quality is None else -item.seat_quality, item.datetime))
+        screenings = screenings[:MAX_RESULTS]
         showtime_cache[cache_key] = screenings
         return screenings
 
     @staticmethod
-    def _select_candidates(screenings):
+    def _select_candidates(screenings, request=None):
         if not screenings:
             return []
         if any(screening.distance_km is not None for screening in screenings):
             screenings.sort(key=lambda item: (float("inf") if item.distance_km is None else item.distance_km, item.datetime))
-        else:
-            screenings.sort(key=lambda item: item.datetime)
-        return screenings[:MAX_SCREENINGS]
+            return screenings[:MAX_CANDIDATES]
+
+        screenings.sort(key=lambda item: item.datetime)
+        dates = sorted({screening.datetime.date() for screening in screenings})
+        if request and len(dates) > 1:
+            slots_per_date = max(1, MAX_CANDIDATES // len(dates))
+            selected = []
+            for target_date in dates:
+                date_screenings = [screening for screening in screenings if screening.datetime.date() == target_date]
+                selected.extend(date_screenings[:slots_per_date])
+            selected_ids = {id(screening) for screening in selected}
+            selected.extend(screening for screening in screenings if id(screening) not in selected_ids)
+            return selected[:MAX_CANDIDATES]
+        return screenings[:MAX_CANDIDATES]
 
     def _enrich_screening(self, screening, request):
         provider = self.providers[screening.provider]
-        price_key = (screening.provider, screening.performance_id)
         try:
-            with self._price_cache_lock:
-                cached_price = ticket_price_cache.get(price_key)
-            if cached_price is None:
-                price = provider.get_ticket_price(screening.performance_id)
-                with self._price_cache_lock:
-                    ticket_price_cache[price_key] = price
-                cached_price = price
-            screening.price = cached_price
+            screening.baseline_price = resolve_baseline_price(screening.provider, screening.experience, screening.datetime)
         except Exception:
-            logger.exception("Price lookup failed for %s %s", screening.provider, screening.performance_id)
+            logger.exception("Baseline price lookup failed for %s %s", screening.provider, screening.performance_id)
 
         try:
             recommender = self.recommendation_providers[screening.provider]
@@ -83,11 +88,14 @@ class SearchService:
             logger.exception("Seat recommendation failed for %s %s", screening.provider, screening.performance_id)
 
     def _search_provider(self, provider, request):
-        catalog = self.catalog_for(provider, request.date)
-        matches = self.resolve_movie_ids(provider, request.movie, request.date, catalog)
-        movie_ids = {match.movie_id for match in matches}
-        selected_catalog = [entry for entry in catalog if entry.movie_id in movie_ids]
-        screenings = provider.search(request, movie_ids, selected_catalog)
+        screenings = []
+        for target_date in request.search_dates:
+            daily_request = request.for_date(target_date)
+            catalog = self.catalog_for(provider, target_date)
+            matches = self.resolve_movie_ids(provider, daily_request.movie, target_date, catalog)
+            movie_ids = {match.movie_id for match in matches}
+            selected_catalog = [entry for entry in catalog if entry.movie_id in movie_ids]
+            screenings.extend(provider.search(daily_request, movie_ids, selected_catalog))
         return self._filter_by_location(screenings, request)
 
     @staticmethod

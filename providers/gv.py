@@ -54,25 +54,6 @@ class GVSearchProvider(MovieSearchProvider):
                     layout.occupied.add(seat)
         return layout
 
-    def get_ticket_price(self, performance_id):
-        cinema_id, film_code, show_date, show_time, hall_number = performance_id.split("|")
-        seat = next(
-            item for row in self._seatplan(performance_id) for item in row
-            if item["rowId"] is not None and item["columnId"] is not None and item["status"] == "L"
-        )
-        data = self._post("getticketprice", {
-            "cinemaId": cinema_id,
-            "filmCode": film_code,
-            "showDate": show_date,
-            "showTime": show_time,
-            "hallNumber": hall_number,
-            "sectionId": seat["sectionId"],
-            "seatType": seat["type"],
-            "sms": False,
-        }, referer="https://www.gv.com.sg/GVSeatSelection")["data"]
-        adult = next((ticket for ticket in data["tickets"] if ticket["type"] == "ADULT"), None)
-        return float(adult["discountPrice"]) if adult else None
-
     def _films(self):
         # TODO: put homeadvancesales if necessary
         films = {}
@@ -115,6 +96,8 @@ class GVSearchProvider(MovieSearchProvider):
                     if starts_at < now:
                         continue
                     if request.after and starts_at.time() < request.after:
+                        continue
+                    if request.until and starts_at.time() > request.until:
                         continue
                     if request.experience and request.experience.upper() != experience:
                         continue
