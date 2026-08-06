@@ -1,4 +1,6 @@
-from providers.gv import GVSearchProvider
+from datetime import date, datetime
+
+from providers.gv import GVSearchProvider, SINGAPORE_TZ
 from models.seat_layout import Seat
 
 
@@ -35,3 +37,9 @@ def test_gv_seat_layout_uses_non_null_grid_cells_as_valid_seats():
     assert layout.available
     assert layout.occupied
     assert Seat("A", 2) not in layout.valid
+
+
+def test_gv_day_timestamp_is_interpreted_in_singapore_time():
+    timestamp_ms = 1786377600000  # 2026-08-11 00:00 Singapore time
+
+    assert datetime.fromtimestamp(timestamp_ms / 1000, SINGAPORE_TZ).date() == date(2026, 8, 11)

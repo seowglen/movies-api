@@ -1,5 +1,5 @@
 """Golden Village API adapter, using curl_cffi for its browser TLS fingerprint."""
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from curl_cffi import requests
 
@@ -11,6 +11,7 @@ from utils.constants import GV_CINEMAS
 
 
 BASE_URL = "https://www.gv.com.sg/.gv-api"
+SINGAPORE_TZ = timezone(timedelta(hours=8))
 HEADERS = {
     "accept": "application/json, text/plain, */*",
     "content-type": "application/json; charset=UTF-8",
@@ -86,7 +87,7 @@ class GVSearchProvider(MovieSearchProvider):
         for location in session_data["locations"]:
             cinema = self.cinemas.get(location["id"], location["name"])
             for day in location["dates"]:
-                show_date = datetime.fromtimestamp(day["date"] / 1000).date()
+                show_date = datetime.fromtimestamp(day["date"] / 1000, SINGAPORE_TZ).date()
                 if show_date != request.date:
                     continue
                 for show in day["times"]:
