@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
+import random
 import time
 from threading import Lock
 from time import monotonic
@@ -16,7 +17,8 @@ logger = logging.getLogger(__name__)
 MAX_CANDIDATES = 25
 MAX_RESULTS = 10
 ENRICHMENT_BATCH_SIZE = 4
-ENRICHMENT_BATCH_DELAY_SECONDS = 0.5
+ENRICHMENT_BATCH_DELAY_SECONDS = 1.0
+ENRICHMENT_DELAY_JITTER_SECONDS = 0.25
 
 
 class SearchService:
@@ -50,7 +52,11 @@ class SearchService:
                 for enrichment in enrichments:
                     enrichment.result()
             if start + ENRICHMENT_BATCH_SIZE < len(screenings):
-                time.sleep(ENRICHMENT_BATCH_DELAY_SECONDS)
+                delay = ENRICHMENT_BATCH_DELAY_SECONDS + random.uniform(
+                    -ENRICHMENT_DELAY_JITTER_SECONDS,
+                    ENRICHMENT_DELAY_JITTER_SECONDS,
+                )
+                time.sleep(delay)
 
         screenings = [screening for screening in screenings if screening.recommended_seats]
         screenings.sort(key=lambda item: (-1 if item.seat_quality is None else -item.seat_quality, item.datetime))
@@ -91,8 +97,16 @@ class SearchService:
             screening.seat_layout = structured_seat_layout(layout, screening.provider)
             recommendation = recommender.recommend(layout, request.pax, screening.experience)
             screening.recommended_seats, screening.seat_quality = recommendation.seats, recommendation.score
-        except Exception:
-            logger.exception("Seat recommendation failed for %s %s", screening.provider, screening.performance_id)
+        except Exception as exc:
+            response = getattr(exc, "response", None)
+            status_code = getattr(response, "status_code", None)
+            logger.warning(
+                "seat_recommendation_failed provider=%s performance_id=%s status=%s error=%s",
+                screening.provider,
+                screening.performance_id,
+                status_code or "unknown",
+                str(exc),
+            )
 
     def _search_provider(self, provider, request):
         screenings = []
