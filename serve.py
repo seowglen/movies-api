@@ -4,6 +4,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from engine.recommendation import GVRecommendationProvider, ShawRecommendationProvider
 from engine.search import SearchService
@@ -13,6 +14,17 @@ from providers import GVSearchProvider, ShawSearchProvider
 from utils.location import LOCATION_ALIASES
 
 app = FastAPI(title="Movie Recommendation Engine", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://cinema-screener-c39588.gitlab.io",
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
 providers = [ShawSearchProvider(), GVSearchProvider()]
 recommendation_providers = {
     "shaw": ShawRecommendationProvider(),
