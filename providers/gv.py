@@ -49,7 +49,7 @@ class GVSearchProvider(MovieSearchProvider):
                 seat = Seat(item["rowId"], item["colNumber"])
                 layout.rows.setdefault(seat.row, []).append(seat.number)
                 layout.valid.add(seat)
-                if item["status"] == "L":
+                if item["status"] == "L" and item.get("type") == "N":
                     layout.available.add(seat)
                 else:
                     layout.occupied.add(seat)

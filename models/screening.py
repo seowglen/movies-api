@@ -18,3 +18,4 @@ class Screening:
     recommended_seats: List[str] = field(default_factory=list)
     distance_km: Optional[float] = None
     cinema_id: Optional[str] = None
+    seat_layout: Optional[dict] = None

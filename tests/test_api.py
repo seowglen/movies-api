@@ -67,6 +67,7 @@ def test_screening_response_uses_explicit_camel_case_and_singapore_time():
     assert response["performanceId"] == "performance"
     assert response["baselinePrice"] == 22.0
     assert response["recommendedSeats"] == ["H10", "H11"]
+    assert response["seatLayout"] is None
     assert "cinemaId" not in response
     assert "distanceKm" not in response
 

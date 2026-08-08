@@ -26,6 +26,16 @@ class Experience(str, Enum):
     AURO = "AURO"
 
 
+class SeatStatus(BaseModel):
+    number: int = Field(..., description="Provider seat number")
+    status: str = Field(..., description="AVAILABLE, OCCUPIED, NOT_A_SEAT, or UNKNOWN")
+
+
+class SeatLayoutRow(BaseModel):
+    row: str = Field(..., description="Row label in visual front-to-back order")
+    seats: List[SeatStatus] = Field(..., description="Seats in visual left-to-right order")
+
+
 class SearchPayload(BaseModel):
     title: str = Field(..., min_length=1, description="User movie title or search phrase", examples=["spiderman"])
     startTimeUTC: datetime = Field(..., description="Inclusive UTC start time", examples=["2026-08-07T11:00:00Z"])
@@ -48,6 +58,10 @@ class ScreeningResponse(BaseModel):
     baselinePrice: Optional[float] = None
     seatQuality: Optional[float] = None
     recommendedSeats: List[str] = Field(default_factory=list)
+    seatLayout: Optional[List[SeatLayoutRow]] = Field(
+        None,
+        description="Structured seat data in provider-correct visual order. Missing positions are UNKNOWN.",
+    )
 
 
 class SearchResponse(BaseModel):

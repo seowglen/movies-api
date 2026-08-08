@@ -13,15 +13,25 @@ class Recommendation:
 class SeatRecommendationProvider:
     """Shared seat-scoring mechanics; each cinema supplies its own preferences."""
 
-    experience_scores = {"STANDARD": 0.5}
     preferred_row = 0.6
     blocks_single_seat = False
+    front_rows_high_letters = False
+    experience_row_targets = {"STANDARD": 0.66}
+    experience_front_penalties = {
+        "STANDARD": {0: 36.0, 1: 26.0, 2: 15.0},
+        "DELUXE": {0: 36.0, 1: 26.0, 2: 15.0},
+        "GEMINI": {0: 30.0, 1: 22.0, 2: 12.0},
+        "LUMIERE": {0: 25.0, 1: 16.0, 2: 8.0},
+        "PREMIERE": {0: 25.0, 1: 16.0, 2: 8.0},
+        "AURO": {0: 36.0, 1: 26.0, 2: 15.0},
+        "GOLD CLASS": {0: 15.0, 1: 8.0, 2: 2.0},
+        "IMAX": {0: 55.0, 1: 42.0, 2: 30.0, 3: 18.0, 4: 8.0},
+        "GVMAX": {0: 48.0, 1: 36.0, 2: 24.0, 3: 14.0, 4: 6.0},
+    }
 
     def recommend(self, layout, pax, experience):
         candidates = []
-        # Cinema layouts in these provider responses label front rows with
-        # higher letters, so reverse the labels before applying row scores.
-        rows = sorted(layout.rows, reverse=True)
+        rows = sorted(layout.rows, reverse=self.front_rows_high_letters)
         for row_index, row in enumerate(rows):
             numbers = sorted(set(layout.rows[row]))
             for start in numbers:
@@ -37,15 +47,23 @@ class SeatRecommendationProvider:
         return Recommendation(seats, round(score, 1), max(1, min(5, round(score / 20))))
 
     def _score(self, row_index, rows, numbers, group, layout, experience):
-        center = (min(numbers) + max(numbers)) / 2.0
+        max_seat_number = max((max(row_numbers) for row_numbers in layout.rows.values() if row_numbers), default=max(numbers))
+        center = (1 + max_seat_number) / 2.0
         group_center = (group[0].number + group[-1].number) / 2.0
         horizontal = max(0.0, 1.0 - abs(group_center - center) / max(1.0, center))
-        ideal_row = (len(rows) - 1) * self.preferred_row
+        ideal_row = (len(rows) - 1) * self.experience_row_targets.get(experience.upper(), self.preferred_row)
         row_score = max(0.0, 1.0 - abs(row_index - ideal_row) / max(1.0, len(rows)))
         buffer_score = sum(1 for seat in (Seat(group[0].row, group[0].number - 1), Seat(group[-1].row, group[-1].number + 1)) if seat in layout.available) / 2.0
-        experience_score = self.experience_scores.get(experience.upper(), self.experience_scores["STANDARD"])
-        front_penalty = {0: 36.0, 1: 26.0, 2: 15.0}.get(row_index, 0.0)
-        weighted_score = 100 * (0.50 * row_score + 0.28 * horizontal + 0.13 * experience_score + 0.09 * buffer_score)
+        penalties = self.experience_front_penalties.get(experience.upper(), self.experience_front_penalties["STANDARD"])
+        front_penalty = penalties.get(row_index, 0.0)
+        valid_count = len(layout.valid)
+        occupancy = len(layout.occupied & layout.valid) / float(valid_count) if valid_count else 0.0
+        buffer_weight = max(0.0, min(0.20, 0.20 * (0.70 - occupancy) / 0.30))
+        geometry_weight = 1.0 - buffer_weight
+        weighted_score = 100 * (
+            geometry_weight * (0.60 * horizontal + 0.40 * row_score)
+            + buffer_weight * buffer_score
+        )
         return max(0.0, weighted_score - front_penalty)
 
     @staticmethod
@@ -61,11 +79,19 @@ class SeatRecommendationProvider:
 
 
 class ShawRecommendationProvider(SeatRecommendationProvider):
-    experience_scores = {"IMAX": 1.0, "PREMIERE": 0.9, "LUMIERE": 0.85, "STANDARD": 0.5}
     preferred_row = 0.6
+    front_rows_high_letters = True
+    experience_row_targets = {"STANDARD": 0.66, "IMAX": 0.55, "PREMIERE": 0.72, "LUMIERE": 0.72}
 
 
 class GVRecommendationProvider(SeatRecommendationProvider):
-    experience_scores = {"GOLD CLASS": 1.0, "GVMAX": 0.9, "DELUXE": 0.85, "GEMINI": 0.8, "AURO": 0.75, "STANDARD": 0.5}
     preferred_row = 0.55
     blocks_single_seat = True
+    experience_row_targets = {
+        "STANDARD": 0.66,
+        "GVMAX": 0.60,
+        "GOLD CLASS": 0.75,
+        "DELUXE": 0.66,
+        "GEMINI": 0.70,
+        "AURO": 0.75,
+    }

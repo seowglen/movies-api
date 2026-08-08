@@ -81,7 +81,7 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/movies", deprecated=True)
+@app.get("/movies", include_in_schema=False)
 def movies(target_date: str = None):
     try:
         requested_date = date.fromisoformat(target_date) if target_date else date.today()
@@ -115,4 +115,5 @@ def screening_response(screening):
         "baselinePrice": screening.baseline_price,
         "seatQuality": screening.seat_quality,
         "recommendedSeats": screening.recommended_seats,
+        "seatLayout": screening.seat_layout,
     }

@@ -8,6 +8,7 @@ from providers.base import CatalogMatch
 from rapidfuzz import fuzz, process
 from utils.location import DEFAULT_RADIUS_KM, cinema_coordinates, distance_km, resolve_location
 from utils.pricing import resolve_baseline_price
+from utils.seat_map import structured_seat_layout
 
 logger = logging.getLogger(__name__)
 MAX_CANDIDATES = 50
@@ -82,7 +83,9 @@ class SearchService:
 
         try:
             recommender = self.recommendation_providers[screening.provider]
-            recommendation = recommender.recommend(self._layout(provider, screening.performance_id), request.pax, screening.experience)
+            layout = self._layout(provider, screening.performance_id)
+            screening.seat_layout = structured_seat_layout(layout, screening.provider)
+            recommendation = recommender.recommend(layout, request.pax, screening.experience)
             screening.recommended_seats, screening.seat_quality = recommendation.seats, recommendation.score
         except Exception:
             logger.exception("Seat recommendation failed for %s %s", screening.provider, screening.performance_id)
