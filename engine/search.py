@@ -40,8 +40,14 @@ class SearchService:
             for provider in providers:
                 try:
                     screenings.extend(searches[provider.name].result())
-                except Exception:
-                    logger.exception("Movie search failed for provider %s", provider.name)
+                except Exception as exc:
+                    response = getattr(exc, "response", None)
+                    logger.warning(
+                        "provider_search_failed provider=%s status=%s error=%s",
+                        provider.name,
+                        getattr(response, "status_code", None) or "unknown",
+                        str(exc),
+                    )
 
         screenings = self._select_candidates(screenings, request)
 
