@@ -1,6 +1,7 @@
 from engine.recommendation import GVRecommendationProvider, ShawRecommendationProvider
 from models.seat_layout import Seat, SeatLayout
 from utils.seat_map import structured_seat_layout
+from utils.seat_cache import seat_layout_ttl
 
 def test_recommendation_prefers_a_centered_contiguous_group():
     layout = SeatLayout(rows={"A": list(range(1, 11)), "B": list(range(1, 11)), "C": list(range(1, 11)), "D": list(range(1, 11)), "E": list(range(1, 11))})
@@ -81,3 +82,12 @@ def test_structured_seat_layout_preserves_seat_statuses():
             ],
         }],
     }["rows"]
+
+
+def test_seat_layout_ttl_scales_with_time_to_show():
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime(2026, 8, 7, 12, tzinfo=timezone.utc)
+    assert seat_layout_ttl(now + timedelta(hours=1), now) == 30
+    assert seat_layout_ttl(now + timedelta(hours=12), now) == 180
+    assert seat_layout_ttl(now + timedelta(hours=48), now) == 900

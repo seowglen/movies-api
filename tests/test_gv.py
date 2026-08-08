@@ -61,3 +61,14 @@ def test_gv_missing_session_data_returns_no_screenings():
     provider._post = lambda *args, **kwargs: {"data": None}
 
     assert provider._screenings({"filmCd": "missing"}, type("Request", (), {"date": date(2026, 8, 10)})()) == []
+
+
+def test_gv_session_data_is_cached_by_film_code():
+    provider = GVSearchProvider()
+    calls = []
+    provider._post = lambda *args, **kwargs: calls.append(args[0]) or {"data": {"locations": []}}
+
+    provider._session_for_film("cached-film")
+    provider._session_for_film("cached-film")
+
+    assert calls == ["sessionforfilm"]

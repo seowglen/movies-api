@@ -2,14 +2,15 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 import time
 from threading import Lock
+from time import monotonic
 
-from cache import seat_layout_cache, showtime_cache
-from cache import movie_catalog_cache
+from cache import movie_catalog_cache, seat_layout_cache
 from providers.base import CatalogMatch
 from rapidfuzz import fuzz, process
 from utils.location import DEFAULT_RADIUS_KM, cinema_coordinates, distance_km, resolve_location
 from utils.pricing import resolve_baseline_price
 from utils.seat_map import structured_seat_layout
+from utils.seat_cache import seat_layout_ttl
 
 logger = logging.getLogger(__name__)
 MAX_CANDIDATES = 25
@@ -27,9 +28,6 @@ class SearchService:
 
 
     def search(self, request):
-        cache_key = (request.movie.casefold(), request.date.isoformat(), request.end_date.isoformat() if request.end_date else None, request.after.isoformat() if request.after else None, request.until.isoformat() if request.until else None, request.pax, request.location, request.experience, request.radius_km)
-        if cache_key in showtime_cache: return showtime_cache[cache_key]
-
         screenings = []
         providers = list(self.providers.values())
         with ThreadPoolExecutor(max_workers=max(1, len(providers))) as executor:
@@ -57,7 +55,6 @@ class SearchService:
         screenings = [screening for screening in screenings if screening.recommended_seats]
         screenings.sort(key=lambda item: (-1 if item.seat_quality is None else -item.seat_quality, item.datetime))
         screenings = screenings[:MAX_RESULTS]
-        showtime_cache[cache_key] = screenings
         return screenings
 
     @staticmethod
@@ -90,7 +87,7 @@ class SearchService:
 
         try:
             recommender = self.recommendation_providers[screening.provider]
-            layout = self._layout(provider, screening.performance_id)
+            layout = self._layout(provider, screening.performance_id, screening.datetime)
             screening.seat_layout = structured_seat_layout(layout, screening.provider)
             recommendation = recommender.recommend(layout, request.pax, screening.experience)
             screening.recommended_seats, screening.seat_quality = recommendation.seats, recommendation.score
@@ -153,14 +150,17 @@ class SearchService:
         ]
 
 
-    def _layout(self, provider, performance_id):
+    def _layout(self, provider, performance_id, showtime):
         key = (provider.name, performance_id)
         with self._seat_cache_lock:
-            if key in seat_layout_cache:
-                return seat_layout_cache[key]
+            cached = seat_layout_cache.get(key)
+            if cached and cached[1] > monotonic():
+                return cached[0]
+            seat_layout_cache.pop(key, None)
 
         layout = provider.get_seat_layout(performance_id)
         with self._seat_cache_lock:
-            if key not in seat_layout_cache:
-                seat_layout_cache[key] = layout
-            return seat_layout_cache[key]
+            seat_layout_cache[key] = (layout, monotonic() + seat_layout_ttl(showtime))
+            if len(seat_layout_cache) > 512:
+                seat_layout_cache.pop(next(iter(seat_layout_cache)))
+            return layout

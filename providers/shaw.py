@@ -3,6 +3,7 @@ from datetime import datetime
 
 import requests
 
+from cache import showtime_cache
 from models.screening import Screening
 from models.seat_layout import Seat, SeatLayout
 from providers.base import MovieCatalog, MovieSearchProvider
@@ -24,13 +25,13 @@ class ShawSearchProvider(MovieSearchProvider):
         self.session = session or requests.Session()
 
     def catalog(self, target_date):
-        return [MovieCatalog(self._movie_id(movie), movie["primaryTitle"], movie) for movie in self._movies(target_date)]
+        return [MovieCatalog(self._movie_id(movie), movie["primaryTitle"]) for movie in self._movies(target_date)]
 
     def search(self, request, movie_ids=None, catalog=None):
         results = []
         now = datetime.now()
 
-        movies = [entry.data for entry in catalog] if catalog is not None else self._movies(request.date)
+        movies = self._movies(request.date)
         for movie in movies:
             title = movie["primaryTitle"]
             if movie_ids is not None and self._movie_id(movie) not in movie_ids:
@@ -89,6 +90,9 @@ class ShawSearchProvider(MovieSearchProvider):
         return layout
 
     def _movies(self, target_date):
+        key = (self.name, target_date.isoformat())
+        if key in showtime_cache:
+            return showtime_cache[key]
         response = self.session.get(
             self.base_url + "/get_show_times",
             params={
@@ -102,7 +106,9 @@ class ShawSearchProvider(MovieSearchProvider):
             timeout=15,
         )
         response.raise_for_status()
-        return response.json()
+        movies = response.json()
+        showtime_cache[key] = movies
+        return movies
 
     @staticmethod
     def _movie_id(movie):

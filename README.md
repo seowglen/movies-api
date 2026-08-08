@@ -116,7 +116,9 @@ price.
 
 ## Caching
 
-The API uses in-memory TTL caches: movie catalogues (1 hour), search results
-(5 minutes), GV seat plans (30 seconds), and seat layouts (30 seconds). Ticket
-prices are represented by a local adult baseline matrix and do not call provider
-price APIs.
+The API uses in-memory TTL caches: movie catalogues and provider showtimes
+(1 hour), and processed seat layouts with dynamic TTLs. Seat layouts are
+cached for 30 seconds when a show starts within 2 hours, 3 minutes when it
+starts within 24 hours, and 15 minutes for later shows. Ticket prices are
+represented by a local adult baseline matrix and do not call provider price
+APIs.

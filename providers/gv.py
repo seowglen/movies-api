@@ -4,7 +4,7 @@ import logging
 
 from curl_cffi import requests
 
-from cache import gv_seatplan_cache
+from cache import showtime_cache
 from models.screening import Screening
 from models.seat_layout import Seat, SeatLayout
 from providers.base import MovieCatalog, MovieSearchProvider
@@ -68,25 +68,17 @@ class GVSearchProvider(MovieSearchProvider):
         return list(films.values())
 
     def _seatplan(self, performance_id):
-        if performance_id in gv_seatplan_cache:
-            return gv_seatplan_cache[performance_id]
         cinema_id, film_code, show_date, show_time, hall_number = performance_id.split("|")
-        data = self._post("seatplan", {
+        return self._post("seatplan", {
             "cinemaId": cinema_id,
             "filmCode": film_code,
             "showDate": show_date,
             "showTime": show_time,
             "hallNumber": hall_number,
         }, referer="https://www.gv.com.sg/GVSeatSelection")["data"]
-        gv_seatplan_cache[performance_id] = data
-        return data
 
     def _screenings(self, film, request):
-        session_data = self._post(
-            "sessionforfilm",
-            {"filmCode": film["filmCd"]},
-            referer="https://www.gv.com.sg/GVMovieDetails",
-        )["data"]
+        session_data = self._session_for_film(film["filmCd"])
         if not session_data or not isinstance(session_data, dict):
             logger.warning("GV returned no session data for film %s", film.get("filmCd"))
             return []
@@ -117,6 +109,18 @@ class GVSearchProvider(MovieSearchProvider):
                     ) % (location["id"], film["filmCd"], starts_at.strftime("%d-%m-%Y"), show["time24"], show["hallNumber"])
                     screenings.append(Screening(self.name, film["filmTitle"], cinema, "Hall %s" % show["hallNumber"], starts_at, experience, performance_id, booking_url, cinema_id=location["id"]))
         return screenings
+
+    def _session_for_film(self, film_code):
+        key = (self.name, "film", film_code)
+        if key in showtime_cache:
+            return showtime_cache[key]
+        session_data = self._post(
+            "sessionforfilm",
+            {"filmCode": film_code},
+            referer="https://www.gv.com.sg/GVMovieDetails",
+        )["data"]
+        showtime_cache[key] = session_data
+        return session_data
 
     def _post(self, endpoint, payload, referer):
         response = self.session.post(
