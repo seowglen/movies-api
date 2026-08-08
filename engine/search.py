@@ -14,11 +14,10 @@ from utils.seat_map import structured_seat_layout
 from utils.seat_cache import seat_layout_ttl
 
 logger = logging.getLogger(__name__)
-MAX_CANDIDATES = 25
-MAX_RESULTS = 10
-ENRICHMENT_BATCH_SIZE = 2
-ENRICHMENT_BATCH_DELAY_SECONDS = 1.0
-ENRICHMENT_DELAY_JITTER_SECONDS = 0.25
+MAX_CANDIDATES = 10
+MAX_RESULTS = 5
+ENRICHMENT_DELAY_MIN_SECONDS = 2.0
+ENRICHMENT_DELAY_MAX_SECONDS = 4.0
 
 
 class SearchService:
@@ -51,18 +50,10 @@ class SearchService:
 
         screenings = self._select_candidates(screenings, request)
 
-        for start in range(0, len(screenings), ENRICHMENT_BATCH_SIZE):
-            batch = screenings[start:start + ENRICHMENT_BATCH_SIZE]
-            with ThreadPoolExecutor(max_workers=len(batch)) as executor:
-                enrichments = [executor.submit(self._enrich_screening, screening, request) for screening in batch]
-                for enrichment in enrichments:
-                    enrichment.result()
-            if start + ENRICHMENT_BATCH_SIZE < len(screenings):
-                delay = ENRICHMENT_BATCH_DELAY_SECONDS + random.uniform(
-                    -ENRICHMENT_DELAY_JITTER_SECONDS,
-                    ENRICHMENT_DELAY_JITTER_SECONDS,
-                )
-                time.sleep(delay)
+        for index, screening in enumerate(screenings):
+            self._enrich_screening(screening, request)
+            if index + 1 < len(screenings):
+                time.sleep(random.uniform(ENRICHMENT_DELAY_MIN_SECONDS, ENRICHMENT_DELAY_MAX_SECONDS))
 
         screenings = [screening for screening in screenings if screening.recommended_seats]
         screenings.sort(key=lambda item: (-1 if item.seat_quality is None else -item.seat_quality, item.datetime))
