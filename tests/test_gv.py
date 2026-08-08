@@ -54,3 +54,10 @@ def test_gv_day_timestamp_is_interpreted_in_singapore_time():
     timestamp_ms = 1786377600000  # 2026-08-11 00:00 Singapore time
 
     assert datetime.fromtimestamp(timestamp_ms / 1000, SINGAPORE_TZ).date() == date(2026, 8, 11)
+
+
+def test_gv_missing_session_data_returns_no_screenings():
+    provider = GVSearchProvider()
+    provider._post = lambda *args, **kwargs: {"data": None}
+
+    assert provider._screenings({"filmCd": "missing"}, type("Request", (), {"date": date(2026, 8, 10)})()) == []

@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
+import time
 from threading import Lock
 
 from cache import seat_layout_cache, showtime_cache
@@ -11,8 +12,10 @@ from utils.pricing import resolve_baseline_price
 from utils.seat_map import structured_seat_layout
 
 logger = logging.getLogger(__name__)
-MAX_CANDIDATES = 50
+MAX_CANDIDATES = 25
 MAX_RESULTS = 10
+ENRICHMENT_BATCH_SIZE = 4
+ENRICHMENT_BATCH_DELAY_SECONDS = 0.5
 
 
 class SearchService:
@@ -42,10 +45,14 @@ class SearchService:
 
         screenings = self._select_candidates(screenings, request)
 
-        with ThreadPoolExecutor(max_workers=min(8, max(1, len(screenings)))) as executor:
-            enrichments = [executor.submit(self._enrich_screening, screening, request) for screening in screenings]
-            for enrichment in enrichments:
-                enrichment.result()
+        for start in range(0, len(screenings), ENRICHMENT_BATCH_SIZE):
+            batch = screenings[start:start + ENRICHMENT_BATCH_SIZE]
+            with ThreadPoolExecutor(max_workers=len(batch)) as executor:
+                enrichments = [executor.submit(self._enrich_screening, screening, request) for screening in batch]
+                for enrichment in enrichments:
+                    enrichment.result()
+            if start + ENRICHMENT_BATCH_SIZE < len(screenings):
+                time.sleep(ENRICHMENT_BATCH_DELAY_SECONDS)
 
         screenings = [screening for screening in screenings if screening.recommended_seats]
         screenings.sort(key=lambda item: (-1 if item.seat_quality is None else -item.seat_quality, item.datetime))

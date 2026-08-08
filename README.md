@@ -39,7 +39,7 @@ Client
   -> provider-local catalog loading and movie ID resolution
   -> provider showtime search
   -> location and time filtering
-  -> candidate selection (up to 50)
+  -> candidate selection (up to 25)
   -> seat-layout enrichment and recommendation
   -> baseline pricing
   -> global ranking and top 10 response
@@ -93,7 +93,7 @@ best adjacent group.
 
 ## Recommendation Algorithm
 
-The backend first selects up to 50 bounded candidates, then
+The backend first selects up to 25 bounded candidates, then
 fetches seat layouts and removes screenings without a valid adjacent seat
 group. The final response contains the top 10.
 

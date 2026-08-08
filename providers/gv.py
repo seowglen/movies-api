@@ -1,5 +1,6 @@
 """Golden Village API adapter, using curl_cffi for its browser TLS fingerprint."""
 from datetime import datetime, timedelta, timezone
+import logging
 
 from curl_cffi import requests
 
@@ -12,6 +13,7 @@ from utils.constants import GV_CINEMAS
 
 BASE_URL = "https://www.gv.com.sg/.gv-api"
 SINGAPORE_TZ = timezone(timedelta(hours=8))
+logger = logging.getLogger(__name__)
 HEADERS = {
     "accept": "application/json, text/plain, */*",
     "content-type": "application/json; charset=UTF-8",
@@ -35,7 +37,10 @@ class GVSearchProvider(MovieSearchProvider):
         for film in films:
             if movie_ids is not None and film["filmCd"] not in movie_ids:
                 continue
-            results.extend(self._screenings(film, request))
+            try:
+                results.extend(self._screenings(film, request))
+            except Exception:
+                logger.exception("GV screening lookup failed for film %s", film.get("filmCd"))
         return results
 
     def get_seat_layout(self, performance_id):
@@ -82,9 +87,12 @@ class GVSearchProvider(MovieSearchProvider):
             {"filmCode": film["filmCd"]},
             referer="https://www.gv.com.sg/GVMovieDetails",
         )["data"]
+        if not session_data or not isinstance(session_data, dict):
+            logger.warning("GV returned no session data for film %s", film.get("filmCd"))
+            return []
         screenings = []
         now = datetime.now()
-        for location in session_data["locations"]:
+        for location in session_data.get("locations") or []:
             cinema = self.cinemas.get(location["id"], location["name"])
             for day in location["dates"]:
                 show_date = datetime.fromtimestamp(day["date"] / 1000, SINGAPORE_TZ).date()
