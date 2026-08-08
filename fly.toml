@@ -18,4 +18,4 @@ primary_region = "sin"
 [[vm]]
   memory = "256mb"
   cpu_kind = "shared"
-  cpus = 0.5
+  cpus = 1
