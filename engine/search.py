@@ -16,7 +16,7 @@ from utils.seat_cache import seat_layout_ttl
 logger = logging.getLogger(__name__)
 MAX_CANDIDATES = 25
 MAX_RESULTS = 10
-ENRICHMENT_BATCH_SIZE = 4
+ENRICHMENT_BATCH_SIZE = 2
 ENRICHMENT_BATCH_DELAY_SECONDS = 1.0
 ENRICHMENT_DELAY_JITTER_SECONDS = 0.25
 

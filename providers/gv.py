@@ -12,6 +12,7 @@ from utils.constants import GV_CINEMAS
 
 
 BASE_URL = "https://www.gv.com.sg/.gv-api"
+SEATPLAN_BASE_URL = "https://www.gv.com.sg/.gv-api2"
 SINGAPORE_TZ = timezone(timedelta(hours=8))
 logger = logging.getLogger(__name__)
 HEADERS = {
@@ -75,7 +76,7 @@ class GVSearchProvider(MovieSearchProvider):
             "showDate": show_date,
             "showTime": show_time,
             "hallNumber": hall_number,
-        }, referer="https://www.gv.com.sg/GVSeatSelection")["data"]
+        }, referer="https://www.gv.com.sg/GVSeatSelection", base_url=SEATPLAN_BASE_URL)["data"]
 
     def _screenings(self, film, request):
         session_data = self._session_for_film(film["filmCd"])
@@ -122,9 +123,9 @@ class GVSearchProvider(MovieSearchProvider):
         showtime_cache[key] = session_data
         return session_data
 
-    def _post(self, endpoint, payload, referer):
+    def _post(self, endpoint, payload, referer, base_url=BASE_URL):
         response = self.session.post(
-            BASE_URL + "/" + endpoint,
+            base_url + "/" + endpoint,
             headers=dict(HEADERS, referer=referer),
             json=payload,
             timeout=15,
