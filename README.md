@@ -42,7 +42,7 @@ Client
   -> candidate selection (up to 10)
   -> seat-layout enrichment and recommendation
   -> baseline pricing
-  -> global ranking and top 5 response
+  -> global ranking and top 10 response
 ```
 
 Each provider resolves the title against its own catalog. Provider-specific
@@ -95,7 +95,7 @@ best adjacent group.
 
 The backend first selects up to 10 bounded candidates, then
 fetches seat layouts and removes screenings without a valid adjacent seat
-group. The final response contains the top 5.
+group. The final response contains the top 10.
 
 Seat scoring uses:
 

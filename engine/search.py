@@ -15,9 +15,9 @@ from utils.seat_cache import seat_layout_ttl
 
 logger = logging.getLogger(__name__)
 MAX_CANDIDATES = 10
-MAX_RESULTS = 5
-ENRICHMENT_DELAY_MIN_SECONDS = 2.0
-ENRICHMENT_DELAY_MAX_SECONDS = 4.0
+MAX_RESULTS = 10
+ENRICHMENT_DELAY_MIN_SECONDS = 1.5
+ENRICHMENT_DELAY_MAX_SECONDS = 2.5
 
 
 class SearchService:
