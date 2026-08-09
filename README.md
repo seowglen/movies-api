@@ -29,27 +29,79 @@ The legacy `movies.py` prototype remains untouched.
 
 ## Architecture
 
-The search API accepts a structured request and does not parse natural language:
+The search API accepts a structured request and does not parse natural language.
+`POST /search` creates a job and returns immediately. The frontend polls
+`GET /search/{jobId}` while provider workers fetch seat layouts.
+
+```mermaid
+flowchart TD
+    Client[Frontend] -->|POST /search| API[FastAPI API]
+    API --> Job[Search Job Manager]
+    API -->|jobId immediately| Client
+    Job --> Catalog[Catalog and showtime caches]
+    Job --> Select[Filter and select up to 20 candidates]
+    Select --> GVQ[GV seat queue]
+    Select --> ShawQ[Shaw seat queue]
+    GVQ --> GV[GV worker: serial and jittered]
+    ShawQ --> Shaw[Shaw worker: independent]
+    GV --> Seats[Seat-layout cache]
+    Shaw --> Seats
+    Seats --> Rank[Recommendation and baseline pricing]
+    Rank --> Job
+    Client -->|GET /search/{jobId}| API
+    API --> Client
+```
+
+Plain-text flow:
 
 ```text
-Client
-  -> POST /search
-  -> UTC request validation and Singapore-time conversion
-  -> SearchService
-  -> provider-local catalog loading and movie ID resolution
-  -> provider showtime search
-  -> location and time filtering
-  -> candidate selection (up to 10)
-  -> seat-layout enrichment and recommendation
-  -> baseline pricing
-  -> global ranking and top 10 response
+Frontend -> POST /search -> jobId
+                 |
+                 v
+        Search Job Manager
+          |            |
+       GV queue     Shaw queue
+       (serial)    (independent)
+          |            |
+       Seat cache and recommendation
+                 |
+                 v
+Frontend <- GET /search/{jobId} <- partial/final results
 ```
+
+`POST /search` returns HTTP `202` immediately:
+
+```json
+{
+  "jobId": "...",
+  "status": "QUEUED",
+  "phase": "QUEUED",
+  "completed": 0,
+  "total": 0,
+  "screenings": []
+}
+```
+
+Poll the result with:
+
+```text
+GET /search/{jobId}
+```
+
+While seat layouts are being fetched, candidate screenings are returned with
+`seatStatus: "LOADING"`. Completed candidates use `READY`; provider failures
+use `FAILED`. Stop polling when the job status is `COMPLETED`, `PARTIAL`, or
+`FAILED`.
 
 Each provider resolves the title against its own catalog. Provider-specific
 movie titles are never returned to the parser or shared between providers.
 
 The response exposes only public screening data. Provider cinema IDs and
 distance calculations remain internal implementation details.
+
+Job statuses are `QUEUED`, `PROCESSING`, `COMPLETED`, `PARTIAL`, and `FAILED`.
+Screenings expose `seatStatus` as `LOADING`, `READY`, or `FAILED` so clients
+can render partial results while workers are still running.
 
 ## Seat Layout
 
@@ -93,9 +145,11 @@ best adjacent group.
 
 ## Recommendation Algorithm
 
-The backend first selects up to 10 bounded candidates, then
+The backend first selects up to 20 bounded candidates, then
 fetches seat layouts and removes screenings without a valid adjacent seat
-group. The final response contains the top 10.
+group. The final response contains the successful candidates in their
+selected chronological/distance order. The frontend can apply preference
+filters and ranking.
 
 Seat scoring uses:
 

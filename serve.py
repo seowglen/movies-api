@@ -3,13 +3,14 @@ from dataclasses import asdict
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Dict
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from engine.recommendation import GVRecommendationProvider, ShawRecommendationProvider
 from engine.search import SearchService
 from models.search_request import SearchRequest
-from models.api import HealthResponse, SearchPayload, SearchResponse
+from models.api import HealthResponse, SearchJobResponse, SearchPayload
+from engine.search_jobs import SearchJobManager, WorkerConfig
 from providers import GVSearchProvider, ShawSearchProvider
 from utils.location import LOCATION_ALIASES
 
@@ -33,6 +34,13 @@ recommendation_providers = {
 
 
 search_service = SearchService(providers, recommendation_providers)
+search_jobs = SearchJobManager(
+    search_service,
+    {
+        "gv": WorkerConfig(max_concurrency=1, min_delay_seconds=1.5, max_delay_seconds=2.0),
+        "shaw": WorkerConfig(max_concurrency=1),
+    },
+)
 
 
 def catalog_for(target_date):
@@ -102,10 +110,25 @@ def movies(target_date: str = None):
     return {"date": requested_date.isoformat(), "movies": catalog_for(requested_date)}
 
 
-@app.post("/search", response_model=SearchResponse, summary="Search movie screenings")
+@app.post("/search", response_model=SearchJobResponse, status_code=status.HTTP_202_ACCEPTED, summary="Start a screening search")
 def search(payload: SearchPayload):
     request = request_from_payload(payload.model_dump(mode="json"))
-    return {"screenings": [screening_response(item) for item in search_service.search(request)]}
+    return job_response(search_jobs.submit(request))
+
+
+@app.get("/search/{job_id}", response_model=SearchJobResponse, summary="Get screening search status")
+def search_status(job_id: str):
+    response = job_response(job_id)
+    if response is None:
+        raise HTTPException(status_code=404, detail="search job not found")
+    return response
+
+
+def job_response(job_id):
+    response = search_jobs.get(job_id)
+    if response is not None:
+        response["screenings"] = [screening_response(item) for item in response["screenings"]]
+    return response
 
 
 def screening_response(screening):
@@ -128,4 +151,5 @@ def screening_response(screening):
         "seatQuality": screening.seat_quality,
         "recommendedSeats": screening.recommended_seats,
         "seatLayout": screening.seat_layout,
+        "seatStatus": screening.seat_status,
     }

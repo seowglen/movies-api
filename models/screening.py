@@ -19,3 +19,4 @@ class Screening:
     distance_km: Optional[float] = None
     cinema_id: Optional[str] = None
     seat_layout: Optional[dict] = None
+    seat_status: str = "LOADING"

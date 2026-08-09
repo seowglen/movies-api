@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -62,6 +62,18 @@ class ScreeningResponse(BaseModel):
         None,
         description="Structured seat data in provider-correct visual order. Missing positions are UNKNOWN.",
     )
+    seatStatus: str = "LOADING"
+
+
+class SearchJobResponse(BaseModel):
+    jobId: str = Field(..., description="Search job identifier used for polling")
+    status: str = Field(..., description="QUEUED, PROCESSING, COMPLETED, PARTIAL, or FAILED")
+    phase: str = Field(..., description="Current search phase")
+    completed: int = Field(..., description="Completed seat-enrichment tasks")
+    total: int = Field(..., description="Total candidate seat-enrichment tasks")
+    screenings: List[ScreeningResponse]
+    error: Optional[str] = None
+    catalogs: Dict[str, List[str]] = Field(default_factory=dict)
 
 
 class SearchResponse(BaseModel):

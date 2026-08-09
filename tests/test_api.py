@@ -76,10 +76,10 @@ def test_openapi_documents_structured_search_contract():
     schema = app.openapi()
     search = schema["paths"]["/search"]["post"]
     payload = schema["components"]["schemas"]["SearchPayload"]
-    response = schema["components"]["schemas"]["SearchResponse"]
+    response = schema["components"]["schemas"]["SearchJobResponse"]
 
     assert "title" in payload["properties"]
     assert "startTimeUTC" in payload["properties"]
     assert "paxCount" in payload["properties"]
     assert "screenings" in response["properties"]
-    assert search["responses"]["200"]["content"]["application/json"]
+    assert search["responses"]["202"]["content"]["application/json"]

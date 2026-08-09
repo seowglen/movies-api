@@ -14,8 +14,8 @@ from utils.seat_map import structured_seat_layout
 from utils.seat_cache import seat_layout_ttl
 
 logger = logging.getLogger(__name__)
-MAX_CANDIDATES = 10
-MAX_RESULTS = 10
+MAX_CANDIDATES = 20
+MAX_RESULTS = 20
 ENRICHMENT_DELAY_MIN_SECONDS = 1.5
 ENRICHMENT_DELAY_MAX_SECONDS = 2.5
 
@@ -56,7 +56,7 @@ class SearchService:
                 time.sleep(random.uniform(ENRICHMENT_DELAY_MIN_SECONDS, ENRICHMENT_DELAY_MAX_SECONDS))
 
         screenings = [screening for screening in screenings if screening.recommended_seats]
-        screenings.sort(key=lambda item: (-1 if item.seat_quality is None else -item.seat_quality, item.datetime))
+        screenings.sort(key=lambda item: item.datetime)
         screenings = screenings[:MAX_RESULTS]
         return screenings
 
@@ -106,15 +106,23 @@ class SearchService:
             )
 
     def _search_provider(self, provider, request):
+        screenings, _ = self._search_provider_details(provider, request)
+        return screenings
+
+    def _search_provider_details(self, provider, request):
         screenings = []
+        catalog_titles = []
         for target_date in request.search_dates:
             daily_request = request.for_date(target_date)
             catalog = self.catalog_for(provider, target_date)
             matches = self.resolve_movie_ids(provider, daily_request.movie, target_date, catalog)
             movie_ids = {match.movie_id for match in matches}
             selected_catalog = [entry for entry in catalog if entry.movie_id in movie_ids]
+            for entry in selected_catalog:
+                if entry.title not in catalog_titles:
+                    catalog_titles.append(entry.title)
             screenings.extend(provider.search(daily_request, movie_ids, selected_catalog))
-        return self._filter_by_location(screenings, request)
+        return self._filter_by_location(screenings, request), catalog_titles
 
     @staticmethod
     def _filter_by_location(screenings, request):
