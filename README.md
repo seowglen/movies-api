@@ -33,27 +33,6 @@ The search API accepts a structured request and does not parse natural language.
 `POST /search` creates a job and returns immediately. The frontend polls
 `GET /search/{jobId}` while provider workers fetch seat layouts.
 
-```mermaid
-flowchart TD
-    Client[Frontend] -->|POST /search| API[FastAPI API]
-    API --> Job[Search Job Manager]
-    API -->|jobId immediately| Client
-    Job --> Catalog[Catalog and showtime caches]
-    Job --> Select[Filter and select up to 20 candidates]
-    Select --> GVQ[GV seat queue]
-    Select --> ShawQ[Shaw seat queue]
-    GVQ --> GV[GV worker: serial and jittered]
-    ShawQ --> Shaw[Shaw worker: independent]
-    GV --> Seats[Seat-layout cache]
-    Shaw --> Seats
-    Seats --> Rank[Recommendation and baseline pricing]
-    Rank --> Job
-    Client -->|GET /search/{jobId}| API
-    API --> Client
-```
-
-Plain-text flow:
-
 ```text
 Frontend -> POST /search -> jobId
                  |
