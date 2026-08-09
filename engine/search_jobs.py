@@ -19,6 +19,8 @@ class ProviderWorker:
         self.name = name
         self.config = config
         self.queue = Queue()
+        self.inflight = {}
+        self.inflight_lock = Lock()
         self.threads = [
             Thread(target=self._run, name="%s-seat-worker-%s" % (name, index), daemon=True)
             for index in range(config.max_concurrency)
@@ -26,14 +28,18 @@ class ProviderWorker:
         for thread in self.threads:
             thread.start()
 
-    def submit(self, task):
-        future = Future()
-        self.queue.put((future, task))
-        return future
+    def submit(self, key, task):
+        with self.inflight_lock:
+            if key in self.inflight:
+                return self.inflight[key]
+            future = Future()
+            self.inflight[key] = future
+            self.queue.put((key, future, task))
+            return future
 
     def _run(self):
         while True:
-            future, task = self.queue.get()
+            key, future, task = self.queue.get()
             try:
                 if not future.set_running_or_notify_cancel():
                     continue
@@ -41,6 +47,8 @@ class ProviderWorker:
             except Exception as exc:
                 future.set_exception(exc)
             finally:
+                with self.inflight_lock:
+                    self.inflight.pop(key, None)
                 if self.config.max_delay_seconds:
                     time.sleep(random.uniform(self.config.min_delay_seconds, self.config.max_delay_seconds))
                 self.queue.task_done()
@@ -118,19 +126,35 @@ class SearchJobManager:
             for screening in candidates:
                 worker = self.workers.get(screening.provider)
                 if worker:
-                    tasks[worker.submit(lambda item=screening: self._enrich(item, request))] = screening
+                    provider = self.search_service.providers[screening.provider]
+                    if self.search_service.cached_layout(provider, screening.performance_id) is not None:
+                        self._enrich(screening, request)
+                        screening.seat_status = "READY" if screening.recommended_seats else "FAILED"
+                        job.completed += 1
+                        continue
+                    key = (screening.provider, screening.performance_id)
+                    future = worker.submit(key, lambda item=screening: self._enrich(item, request))
+                    tasks.setdefault(future, []).append(screening)
 
             pending = set(tasks)
             while pending:
                 done, pending = wait(pending, return_when=FIRST_COMPLETED)
                 for future in done:
-                    screening = tasks[future]
+                    screenings_for_task = tasks[future]
                     try:
                         future.result()
-                        screening.seat_status = "READY" if screening.recommended_seats else "FAILED"
+                        source = screenings_for_task[0]
+                        for screening in screenings_for_task:
+                            if screening is not source:
+                                screening.baseline_price = source.baseline_price
+                                screening.seat_quality = source.seat_quality
+                                screening.recommended_seats = list(source.recommended_seats)
+                                screening.seat_layout = source.seat_layout
+                            screening.seat_status = "READY" if screening.recommended_seats else "FAILED"
                     except Exception:
-                        screening.seat_status = "FAILED"
-                    self._update(job, screenings=candidates, completed=job.completed + 1)
+                        for screening in screenings_for_task:
+                            screening.seat_status = "FAILED"
+                    self._update(job, screenings=candidates, completed=job.completed + len(screenings_for_task))
 
             successful = [item for item in candidates if item.recommended_seats]
             final_status = "PARTIAL" if len(successful) < len(candidates) else "COMPLETED"

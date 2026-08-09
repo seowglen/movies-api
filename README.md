@@ -51,6 +51,11 @@ Frontend -> POST /search -> jobId
 Frontend <- GET /search/{jobId} <- partial/final results
 ```
 
+Before a seat task enters a provider queue, the job checks the seat-layout
+cache. Cache hits are enriched immediately. Cache misses are queued. Identical
+in-flight requests share one task keyed by `(provider, performanceId)`, so
+concurrent users do not create duplicate seat-plan calls.
+
 `POST /search` returns HTTP `202` immediately:
 
 ```json

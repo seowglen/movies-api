@@ -175,11 +175,9 @@ class SearchService:
 
     def _layout(self, provider, performance_id, showtime):
         key = (provider.name, performance_id)
-        with self._seat_cache_lock:
-            cached = seat_layout_cache.get(key)
-            if cached and cached[1] > monotonic():
-                return cached[0]
-            seat_layout_cache.pop(key, None)
+        cached = self.cached_layout(provider, performance_id)
+        if cached is not None:
+            return cached
 
         layout = provider.get_seat_layout(performance_id)
         with self._seat_cache_lock:
@@ -187,3 +185,12 @@ class SearchService:
             if len(seat_layout_cache) > 512:
                 seat_layout_cache.pop(next(iter(seat_layout_cache)))
             return layout
+
+    def cached_layout(self, provider, performance_id):
+        key = (provider.name, performance_id)
+        with self._seat_cache_lock:
+            cached = seat_layout_cache.get(key)
+            if cached and cached[1] > monotonic():
+                return cached[0]
+            seat_layout_cache.pop(key, None)
+        return None

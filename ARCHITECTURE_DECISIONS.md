@@ -60,6 +60,12 @@ results.
 
 Each worker owns provider-specific rate limits, delays, and failure handling.
 
+Before a candidate is queued, the job manager checks the processed seat-layout
+cache. Cache hits avoid provider traffic entirely. Cache misses are deduplicated
+by `(provider, performance_id)` so concurrent users share one in-flight task.
+This protects provider APIs from duplicate requests while preserving the same
+single ranked result flow for clients.
+
 ## 5. Bounded Candidate Enrichment
 
 Showtimes are cheap compared with seat-plan requests. The service selects a
