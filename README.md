@@ -27,6 +27,9 @@ and experiences are validated before provider calls.
 
 The legacy `movies.py` prototype remains untouched.
 
+See [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md) for the detailed
+architecture decisions, tradeoffs, and rejected alternatives.
+
 ## Architecture
 
 The search API accepts a structured request and does not parse natural language.
