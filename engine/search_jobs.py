@@ -64,9 +64,13 @@ class SearchJob:
     total: int = 0
     error: str = None
     catalogs: dict = field(default_factory=dict)
+    created_at: float = field(default_factory=time.monotonic)
 
 
 class SearchJobManager:
+    JOB_TTL_SECONDS = 30 * 60
+    MAX_JOBS = 50
+
     def __init__(self, search_service, worker_configs):
         self.search_service = search_service
         self.jobs = {}
@@ -81,12 +85,14 @@ class SearchJobManager:
     def submit(self, request):
         job = SearchJob(str(uuid4()))
         with self.lock:
+            self._cleanup_locked()
             self.jobs[job.job_id] = job
         self.job_executor.submit(self._run, job, request)
         return job.job_id
 
     def get(self, job_id):
         with self.lock:
+            self._cleanup_locked()
             job = self.jobs.get(job_id)
             if not job:
                 return None
@@ -100,6 +106,25 @@ class SearchJobManager:
                 "error": job.error,
                 "catalogs": dict(job.catalogs),
             }
+
+    def _cleanup_locked(self):
+        now = time.monotonic()
+        terminal = {"COMPLETED", "PARTIAL", "FAILED"}
+        expired = [
+            job_id for job_id, job in self.jobs.items()
+            if job.status in terminal and now - job.created_at > self.JOB_TTL_SECONDS
+        ]
+        for job_id in expired:
+            self.jobs.pop(job_id, None)
+
+        if len(self.jobs) <= self.MAX_JOBS:
+            return
+        removable = sorted(
+            (job for job in self.jobs.values() if job.status in terminal),
+            key=lambda job: job.created_at,
+        )
+        for job in removable[:max(0, len(self.jobs) - self.MAX_JOBS)]:
+            self.jobs.pop(job.job_id, None)
 
     def _run(self, job, request):
         try:
