@@ -83,6 +83,9 @@ use `FAILED`. Stop polling when the job status is `COMPLETED`, `PARTIAL`, or
 Each provider resolves the title against its own catalog. Provider-specific
 movie titles are never returned to the parser or shared between providers.
 
+The GV seat worker processes one request at a time with a randomized 1.0–1.5
+second delay between requests. Shaw uses its own independent worker queue.
+
 The response exposes only public screening data. Provider cinema IDs and
 distance calculations remain internal implementation details.
 

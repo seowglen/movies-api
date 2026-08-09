@@ -37,7 +37,7 @@ search_service = SearchService(providers, recommendation_providers)
 search_jobs = SearchJobManager(
     search_service,
     {
-        "gv": WorkerConfig(max_concurrency=1, min_delay_seconds=1.5, max_delay_seconds=2.0),
+        "gv": WorkerConfig(max_concurrency=1, min_delay_seconds=1.0, max_delay_seconds=1.5),
         "shaw": WorkerConfig(max_concurrency=1),
     },
 )
