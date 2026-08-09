@@ -85,6 +85,30 @@ Job statuses are `QUEUED`, `PROCESSING`, `COMPLETED`, `PARTIAL`, and `FAILED`.
 Screenings expose `seatStatus` as `LOADING`, `READY`, or `FAILED` so clients
 can render partial results while workers are still running.
 
+## Location
+
+Clients can use a built-in Singapore alias:
+
+```json
+{"location":"ORCHARD"}
+```
+
+Or send exact browser/device coordinates:
+
+```json
+{
+  "location": null,
+  "latitude": 1.3048,
+  "longitude": 103.8318,
+  "radius_km": 5
+}
+```
+
+Exact coordinates take precedence over aliases. The frontend can request
+browser location permission, while default Singapore location aliases remain
+available when permission is denied. The backend uses cinema provider IDs and
+coordinates to calculate distance with the Haversine formula.
+
 ## Seat Layout
 
 Each screening includes an optional `seatLayout` array:

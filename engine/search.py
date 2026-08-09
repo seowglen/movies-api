@@ -126,7 +126,11 @@ class SearchService:
 
     @staticmethod
     def _filter_by_location(screenings, request):
-        target = resolve_location(request.location)
+        target = (
+            (request.latitude, request.longitude)
+            if request.latitude is not None and request.longitude is not None
+            else resolve_location(request.location)
+        )
         if target is None:
             if not request.location:
                 return screenings

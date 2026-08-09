@@ -75,7 +75,17 @@ returned screenings: all successful candidates, up to 20
 This prevents hundreds of seat-plan calls for a broad date range while still
 allowing the frontend to filter by experience, cinema, quality, or time.
 
-## 6. Seat Layout Caching
+## 6. Location Resolution
+
+The API supports both named Singapore aliases and exact latitude/longitude
+coordinates. Exact coordinates take precedence when both are supplied. Cinema
+coordinates are keyed by provider and provider cinema ID; names are only a
+fallback for unmapped records.
+
+The frontend may use browser geolocation, but users can always choose a default
+Singapore alias instead. A five-kilometre radius is used by default.
+
+## 7. Seat Layout Caching
 
 Catalogs and provider showtimes are cached for one hour. Processed seat layouts
 use a dynamic TTL based on time to showtime:
@@ -92,7 +102,7 @@ staleness is acceptable in exchange for lower provider traffic.
 The cache uses monotonic expiry values so system clock changes do not corrupt
 TTL calculations.
 
-## 7. Baseline Pricing
+## 8. Baseline Pricing
 
 The service does not call provider ticket-price APIs during search. Instead, it
 returns an indicative adult `baselinePrice` from a local Singapore pricing
@@ -102,7 +112,7 @@ This avoids expensive and promotion-dependent price calls. The baseline is not
 presented as a guaranteed checkout price because final pricing can depend on
 demographics, payment methods, promotions, and booking fees.
 
-## 8. Seat Recommendation Scoring
+## 9. Seat Recommendation Scoring
 
 Recommendations use explainable geometry rather than a black-box model:
 
@@ -118,7 +128,7 @@ Premium recliner formats use lighter penalties.
 The provider-specific row orientation is explicit: GV and Shaw label front rows
 differently.
 
-## 9. Frontend Seat Layout Contract
+## 10. Frontend Seat Layout Contract
 
 The backend returns canonical seat facts rather than a UI-specific grid:
 
@@ -132,7 +142,7 @@ UNKNOWN
 Rows and seats are ordered in visual order for the provider. The frontend owns
 rendering, previews, filtering, and the full seat-layout modal.
 
-## 10. Partial Provider Failure
+## 11. Partial Provider Failure
 
 Provider failures are isolated. A GV catalog or seat-plan failure must not
 remove valid Shaw results.
@@ -141,7 +151,7 @@ Jobs can finish as `PARTIAL` when some candidates fail enrichment. Individual
 screenings expose `seatStatus` so clients can distinguish loading, ready, and
 failed seat data.
 
-## 11. Deployment Tradeoffs
+## 12. Deployment Tradeoffs
 
 The MVP can run as one always-on machine with in-memory state. This keeps the
 system simple and preserves cache locality.
@@ -153,7 +163,7 @@ Provider APIs may also treat cloud-hosted IPs differently from residential
 networks. This is an upstream integration risk, not something that can be
 fully solved through application retries.
 
-## 12. Rejected Alternatives
+## 13. Rejected Alternatives
 
 ### Calling an LLM for every search
 

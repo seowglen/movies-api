@@ -78,6 +78,8 @@ def request_from_payload(payload):
             location=location,
             experience=experience,
             radius_km=float(payload.get("radius_km", 5.0)),
+            latitude=float(payload["latitude"]) if payload.get("latitude") is not None else None,
+            longitude=float(payload["longitude"]) if payload.get("longitude") is not None else None,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail="Invalid search request: %s" % exc)

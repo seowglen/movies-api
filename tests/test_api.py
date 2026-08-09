@@ -40,6 +40,19 @@ def test_structured_payload_rejects_unknown_location():
     assert error.value.status_code == 422
 
 
+def test_structured_payload_accepts_exact_coordinates_without_alias():
+    request = request_from_payload({
+        "title": "spiderman",
+        "startTimeUTC": "2026-08-07T11:00:00Z",
+        "latitude": 1.3048,
+        "longitude": 103.8318,
+    })
+
+    assert request.location is None
+    assert request.latitude == 1.3048
+    assert request.longitude == 103.8318
+
+
 def test_structured_payload_supports_multiple_dates_without_location():
     request = request_from_payload({
         "title": "spiderman",

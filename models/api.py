@@ -44,6 +44,8 @@ class SearchPayload(BaseModel):
     location: Optional[LocationCode] = Field(None, description="Singapore location alias", examples=["ORCHARD"])
     experience: Optional[Experience] = Field(None, description="Requested cinema experience", examples=["IMAX"])
     radius_km: float = Field(5.0, gt=0, description="Search radius when location is set")
+    latitude: Optional[float] = Field(None, ge=-90, le=90, description="Exact user latitude")
+    longitude: Optional[float] = Field(None, ge=-180, le=180, description="Exact user longitude")
 
 
 class ScreeningResponse(BaseModel):
