@@ -53,6 +53,17 @@ def test_structured_payload_accepts_exact_coordinates_without_alias():
     assert request.longitude == 103.8318
 
 
+def test_structured_payload_accepts_location_scope():
+    request = request_from_payload({
+        "title": "spiderman",
+        "startTimeUTC": "2026-08-07T11:00:00Z",
+        "location": "ORCHARD",
+        "locationScope": "AREA",
+    })
+
+    assert request.location_scope == "AREA"
+
+
 def test_structured_payload_supports_multiple_dates_without_location():
     request = request_from_payload({
         "title": "spiderman",

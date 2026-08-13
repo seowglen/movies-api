@@ -83,7 +83,7 @@ use `FAILED`. Stop polling when the job status is `COMPLETED`, `PARTIAL`, or
 Each provider resolves the title against its own catalog. Provider-specific
 movie titles are never returned to the parser or shared between providers.
 
-The GV seat worker processes one request at a time with a randomized 1.0–1.5
+The GV seat worker processes one request at a time with a randomized 0.75–1.25
 second delay between requests. Shaw uses its own independent worker queue.
 
 The response exposes only public screening data. Provider cinema IDs and
@@ -108,6 +108,7 @@ Or send exact browser/device coordinates:
   "location": null,
   "latitude": 1.3048,
   "longitude": 103.8318,
+  "locationScope": "CURRENT",
   "radius_km": 5
 }
 ```
@@ -116,6 +117,12 @@ Exact coordinates take precedence over aliases. The frontend can request
 browser location permission, while default Singapore location aliases remain
 available when permission is denied. The backend uses cinema provider IDs and
 coordinates to calculate distance with the Haversine formula.
+
+Location scopes are `AREA`, `REGION`, and `CURRENT`:
+
+- `AREA`: 3 km radius.
+- `REGION`: 8 km radius.
+- `CURRENT`: 3 km radius, expanding to 5 km only when no cinemas match.
 
 ## Seat Layout
 

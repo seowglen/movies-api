@@ -13,6 +13,7 @@ from models.api import HealthResponse, SearchJobResponse, SearchPayload
 from engine.search_jobs import SearchJobManager, WorkerConfig
 from providers import GVSearchProvider, ShawSearchProvider
 from utils.location import LOCATION_ALIASES
+from utils.regions import location_codes
 
 app = FastAPI(title="Movie Recommendation Engine", version="0.1.0")
 app.add_middleware(
@@ -37,7 +38,7 @@ search_service = SearchService(providers, recommendation_providers)
 search_jobs = SearchJobManager(
     search_service,
     {
-        "gv": WorkerConfig(max_concurrency=1, min_delay_seconds=1.0, max_delay_seconds=1.5),
+        "gv": WorkerConfig(max_concurrency=1, min_delay_seconds=0.75, max_delay_seconds=1.25),
         "shaw": WorkerConfig(max_concurrency=1),
     },
 )
@@ -58,10 +59,12 @@ def request_from_payload(payload):
     try:
         start = _utc_to_singapore(payload["startTimeUTC"])
         end = _utc_to_singapore(payload["endTimeUTC"]) if payload.get("endTimeUTC") else None
+        if end and (end.date() - start.date()).days > 5:
+            raise ValueError("the search date range cannot exceed 5 days")
         location = payload.get("location")
         if location is not None:
             location = str(location).strip().upper()
-            if location.casefold() not in LOCATION_ALIASES:
+            if location.casefold() not in LOCATION_ALIASES and location not in location_codes():
                 raise ValueError("location must be a supported Singapore location alias")
         experience = payload.get("experience")
         if experience is not None:
@@ -80,6 +83,11 @@ def request_from_payload(payload):
             radius_km=float(payload.get("radius_km", 5.0)),
             latitude=float(payload["latitude"]) if payload.get("latitude") is not None else None,
             longitude=float(payload["longitude"]) if payload.get("longitude") is not None else None,
+            location_scope=(
+                str(payload["locationScope"]).upper()
+                if payload.get("locationScope")
+                else (location_codes().get(location, (None, None, None, None))[3] if location else None)
+            ),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail="Invalid search request: %s" % exc)

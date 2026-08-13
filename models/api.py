@@ -5,11 +5,15 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from utils.location import LOCATION_ALIASES
+from utils.regions import location_codes
 
 
 LocationCode = Enum(
     "LocationCode",
-    {alias.upper().replace(" ", "_"): alias.upper() for alias in LOCATION_ALIASES},
+    {
+        **{alias.upper().replace(" ", "_"): alias.upper() for alias in LOCATION_ALIASES},
+        **{code: code for code in location_codes()},
+    },
     type=str,
 )
 
@@ -24,6 +28,12 @@ class Experience(str, Enum):
     DELUXE = "DELUXE"
     GEMINI = "GEMINI"
     AURO = "AURO"
+
+
+class LocationScope(str, Enum):
+    AREA = "AREA"
+    REGION = "REGION"
+    CURRENT = "CURRENT"
 
 
 class SeatStatus(BaseModel):
@@ -46,6 +56,7 @@ class SearchPayload(BaseModel):
     radius_km: float = Field(5.0, gt=0, description="Search radius when location is set")
     latitude: Optional[float] = Field(None, ge=-90, le=90, description="Exact user latitude")
     longitude: Optional[float] = Field(None, ge=-180, le=180, description="Exact user longitude")
+    locationScope: Optional[LocationScope] = Field(None, description="AREA, REGION, or CURRENT")
 
 
 class ScreeningResponse(BaseModel):

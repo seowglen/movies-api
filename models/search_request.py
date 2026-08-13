@@ -16,6 +16,7 @@ class SearchRequest:
     radius_km: Optional[float] = 5.0
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    location_scope: Optional[str] = None
 
     def __post_init__(self):
         if not self.movie.strip():

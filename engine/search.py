@@ -136,16 +136,27 @@ class SearchService:
                 return screenings
             return [screening for screening in screenings if request.location.casefold() in screening.cinema.casefold()]
 
-        radius = request.radius_km or DEFAULT_RADIUS_KM
-        filtered = []
-        for screening in screenings:
-            coordinates = cinema_coordinates(screening.provider, screening.cinema, screening.cinema_id)
-            if coordinates is None:
-                continue
-            distance = distance_km(target, coordinates)
-            if distance <= radius:
-                screening.distance_km = round(distance, 2)
-                filtered.append(screening)
+        primary_radius = request.radius_km or {
+            "AREA": 3.0,
+            "REGION": 8.0,
+            "CURRENT": 3.0,
+        }.get(request.location_scope, DEFAULT_RADIUS_KM)
+
+        def within(radius):
+            filtered = []
+            for screening in screenings:
+                coordinates = cinema_coordinates(screening.provider, screening.cinema, screening.cinema_id)
+                if coordinates is None:
+                    continue
+                distance = distance_km(target, coordinates)
+                if distance <= radius:
+                    screening.distance_km = round(distance, 2)
+                    filtered.append(screening)
+            return filtered
+
+        filtered = within(primary_radius)
+        if not filtered and request.location_scope == "CURRENT" and primary_radius < 5:
+            return within(5.0)
         return filtered
 
     def catalog_for(self, provider, target_date):

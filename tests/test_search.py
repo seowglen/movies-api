@@ -61,6 +61,17 @@ def test_location_filter_adds_distance_and_excludes_far_screenings():
     assert results[0].distance_km is not None
 
 
+def test_current_location_expands_from_three_to_five_kilometres_when_empty():
+    screening = Screening("gv", "Example", "GV VivoCity", "1", datetime(2026, 8, 7, 19), "STANDARD", "near", "url", cinema_id="05")
+    request = SearchRequest(
+        "Example", date(2026, 8, 7), location_scope="CURRENT", latitude=1.3048, longitude=103.8318
+    )
+
+    results = SearchService._filter_by_location([screening], request)
+
+    assert results == [screening]
+
+
 def test_candidate_cap_prioritizes_distance_before_enrichment():
     screenings = [
         Screening("gv", "Example", "GV VivoCity", "1", datetime(2026, 8, 7, 20), "STANDARD", "far", "url", distance_km=4.0),

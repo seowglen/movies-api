@@ -1,8 +1,10 @@
 import math
 
 from rapidfuzz import fuzz, process
+from utils.regions import location_codes
 
 DEFAULT_RADIUS_KM = 5.0
+STRUCTURED_LOCATIONS = location_codes()
 
 # User-entered areas, malls, MRT stations, and districts. These are search
 # anchors, not cinema coordinates.
@@ -144,6 +146,9 @@ def resolve_location(value):
     if not value:
         return None
     normalized = " ".join(value.casefold().split())
+    structured = STRUCTURED_LOCATIONS.get(normalized.upper())
+    if structured:
+        return structured[1], structured[2]
     if normalized in LOCATION_ALIASES:
         return LOCATION_ALIASES[normalized]
     for alias, coordinates in LOCATION_ALIASES.items():
