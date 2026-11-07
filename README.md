@@ -1,17 +1,37 @@
 # Movie Recommendation Engine
 
-FastAPI service that parses natural-language movie requests, searches providers, and ranks available seat groups. Shaw is the live provider. GV is deliberately an adapter placeholder until a supported integration is added.
+FastAPI service that parses natural-language movie requests, searches providers, and ranks available seat groups. Shaw and GV are both supported providers.
+
+## Setup
+
+Requires Python 3.11+ (developed and tested on 3.15).
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+On Windows PowerShell:
+
+```powershell
+py -3 -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
 
 ## Run
 
-```powershell
-.\venv\Scripts\python -m uvicorn serve:app --reload
+```bash
+python -m uvicorn serve:app --reload
 ```
 
 Open `http://127.0.0.1:8000/docs`, or call:
 
-```powershell
-Invoke-RestMethod -Method Post http://127.0.0.1:8000/search -ContentType 'application/json' -Body '{"title":"spiderman","startTimeUTC":"2026-08-07T11:00:00Z","endTimeUTC":"2026-08-07T15:00:00Z","paxCount":4,"location":"ORCHARD","experience":"IMAX"}'
+```bash
+curl -X POST http://127.0.0.1:8000/search \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"spiderman","startTimeUTC":"2026-08-07T11:00:00Z","endTimeUTC":"2026-08-07T15:00:00Z","paxCount":4,"location":"ORCHARD","experience":"IMAX"}'
 ```
 
 `startTimeUTC` is required and `endTimeUTC` is optional. If the window spans
@@ -21,11 +41,25 @@ and experiences are validated before provider calls.
 
 ## Test
 
-```powershell
-.\venv\Scripts\python -m pytest
+```bash
+python -m pytest
 ```
 
 The legacy `movies.py` prototype remains untouched.
+
+## Deploy
+
+Production runs on Fly.io as `movies-sg-api` (region `sin`), built from the
+`Dockerfile` on `python:3.15-slim`:
+
+```bash
+fly deploy
+curl https://movies-sg-api.fly.dev/health
+```
+
+`fly deploy` requires the `flyctl` CLI and a logged-in account
+(`fly auth login`). Dependency versions in `requirements.txt` are the ones
+verified locally against Python 3.15.
 
 See [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md) for the detailed
 architecture decisions, tradeoffs, and rejected alternatives.
