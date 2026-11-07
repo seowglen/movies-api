@@ -1,8 +1,8 @@
-fastapi==0.103.2
-uvicorn[standard]==0.23.2
-dateparser==1.1.8
-rapidfuzz==2.15.2
-cachetools==5.5.2
-requests==2.32.4
-curl-cffi==0.6.4
-pytest==7.4.4
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+dateparser==1.5.0
+rapidfuzz==3.14.6
+cachetools==8.0.0
+requests==2.34.2
+curl-cffi==0.17.0
+pytest==9.2.0

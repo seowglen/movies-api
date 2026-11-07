@@ -7,7 +7,7 @@ from time import monotonic
 
 from cache import movie_catalog_cache, seat_layout_cache
 from providers.base import CatalogMatch
-from rapidfuzz import fuzz, process
+from rapidfuzz import fuzz, process, utils
 from utils.location import DEFAULT_RADIUS_KM, cinema_coordinates, distance_km, resolve_location
 from utils.pricing import resolve_baseline_price
 from utils.seat_map import structured_seat_layout
@@ -175,7 +175,13 @@ class SearchService:
         catalog = catalog if catalog is not None else self.catalog_for(provider, target_date)
         if not catalog:
             return []
-        matches = process.extract(query, [entry.title for entry in catalog], scorer=fuzz.WRatio, limit=2)
+        matches = process.extract(
+            query,
+            [entry.title for entry in catalog],
+            scorer=fuzz.WRatio,
+            processor=utils.default_process,
+            limit=2,
+        )
         best_score = matches[0][1] if matches else 0
         return [
             CatalogMatch(catalog[index].movie_id, score)
